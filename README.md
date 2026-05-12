@@ -70,8 +70,31 @@ POST /events
 GET  /events/recent
 GET  /parts/PART-1017/investigation
 GET  /queries/failed-parts
+GET  /graph/stats
 GET  /graph/export
 ```
+
+`/graph/stats` returns a breakdown of the live RDF graph by node type:
+
+```json
+{
+  "total_triples": 1847,
+  "node_counts": {
+    "TelemetryEvent": 30,
+    "Part": 30,
+    "QualityDeviation": 5,
+    "MillingOperation": 30,
+    "InspectionResult": 30,
+    "CNCMachine": 3,
+    "MaterialBatch": 2,
+    "ProductionRun": 1,
+    "WorkOrder": 1,
+    "FailedParts": 5
+  }
+}
+```
+
+This makes the semantic layer inspectable without running the full dashboard.
 
 The main endpoint is:
 
