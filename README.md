@@ -6,7 +6,7 @@ FactoryTrace is a dockerized semantic manufacturing intelligence prototype for o
 
 The system simulates CNC production events, maps those events into RDF, stores them in an Apache Jena Fuseki knowledge graph, and exposes a small API and dashboard for investigating failed parts.
 
-The goal is not to build a universal manufacturing ontology. The goal is to demonstrate how semantic infrastructure can connect machine telemetry, tools, parts, material batches, operations, and inspection results into an operational graph that supports traceability.
+The goal is to demonstrate how semantic infrastructure can connect machine telemetry, tools, parts, material batches, operations, and inspection results into an operational graph that supports traceability.
 
 ## Scenario
 
@@ -33,14 +33,7 @@ Investigation API
 React Dashboard
 ```
 
-## Services
 
-```text
-frontend   React/Vite dashboard
-backend    FastAPI ingestion and investigation API
-fuseki     Apache Jena Fuseki graph store
-simulator  Deterministic CNC event generator
-```
 
 ## Quick start
 
@@ -52,8 +45,6 @@ Then open:
 
 ```text
 Frontend: http://localhost:5173
-Backend:  http://localhost:8000/docs
-Fuseki:   http://localhost:3030
 ```
 
 To run the simulator manually after the stack is up:
@@ -102,11 +93,11 @@ The main endpoint is:
 GET /parts/PART-1017/investigation
 ```
 
-It returns the failed part, inspection result, machine, tool, material batch, anomaly flags, related failed parts, and a plain-English explanation.
+It returns the failed part, inspection result, machine, tool, material batch, anomaly flags, related failed parts, and a report.
 
 ## CNC simulation
 
-The simulator generates deterministic synthetic events. It does not claim to use live machine data. The fields are chosen to resemble common CNC operational concepts:
+The simulator generates deterministic synthetic events. It does not  use live machine data. The fields are chosen to resemble common CNC operational concepts:
 
 - spindle speed
 - feed rate
@@ -120,7 +111,7 @@ The simulator generates deterministic synthetic events. It does not claim to use
 - material batch id
 - inspection result
 
-This makes the project reproducible and reviewable while still demonstrating the operational logic of a CNC traceability system.
+This makes the project reproducible and reviewable while demonstrating the operational logic of a CNC traceability system.
 
 ## Ontology terms
 
@@ -136,11 +127,3 @@ A CSV controlled vocabulary is in:
 data/ontology_terms.csv
 ```
 
-## Design principles
-
-- Narrow operational process over generic ontology tooling
-- Deterministic data over arbitrary randomness
-- RDF/SPARQL used for explainable traceability
-- Dockerized from the start
-- Clear separation between simulation, ingestion, graph storage, and UI
-- No claim that this replaces industrial standards such as MTConnect, OPC-UA, ISA-95, STEP, or QIF
