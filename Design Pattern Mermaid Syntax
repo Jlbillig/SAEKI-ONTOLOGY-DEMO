@@ -1,0 +1,52 @@
+
+#This design pattern is for the mermaid live editor
+
+
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    M["Machine"] -- Subclass Of --> PE("PhysicalEntity")
+    CNC["CNCMachine"] -- Subclass Of --> M
+    IS["InspectionStation"] -- Subclass Of --> M
+    WC["WorkCell"] -- Subclass Of --> PE
+    T["Tool"] -- Subclass Of --> PE
+    CT["CuttingTool"] -- Subclass Of --> T
+    SE["Sensor"] -- Subclass Of --> PE
+    P["Part"] -- Subclass Of --> PE
+    MB["MaterialBatch"] -- Subclass Of --> PE
+    OPR["Operator"] -- Subclass Of --> PE
+    MO["ManufacturingOperation"] -- Subclass Of --> PR("Process")
+    MI["MillingOperation"] -- Subclass Of --> MO
+    DR["DrillingOperation"] -- Subclass Of --> MO
+    IO["InspectionOperation"] -- Subclass Of --> MO
+    MA["MaintenanceOperation"] -- Subclass Of --> MO
+    PSE["ProductionStartEvent"] -- Subclass Of --> EV["Event"]
+    TE["TelemetryEvent"] -- Subclass Of --> EV
+    OCE["OperationCompleteEvent"] -- Subclass Of --> EV
+    QE["QualityEvent"] -- Subclass Of --> EV
+    QD["QualityDeviation"] -- Subclass Of --> QE
+    AE["AlarmEvent"] -- Subclass Of --> EV
+    MS["MachineState"] -- Subclass Of --> ST("State")
+    OS["OperationalState"] -- Subclass Of --> ST
+    ANS["AnomalyState"] -- Subclass Of --> ST
+    WO["WorkOrder"] -- Subclass Of --> IE("InformationEntity")
+    SP["Specification"] -- Subclass Of --> IE
+    TR["ToleranceRequirement"] -- Subclass Of --> IE
+    IR["InspectionResult"] -- Subclass Of --> IE
+    RCH["RootCauseHypothesis"] -- Subclass Of --> IE
+    SH["Shift"] -- Subclass Of --> TMP("TemporalEntity")
+    RUN["ProductionRun"] -- Subclass Of --> TMP
+    MO -- Performed By Machine --> M
+    MO -- Acts On Part --> P
+    MO -- Uses Tool --> T
+    MO -- Part Of Production Run --> RUN
+    MO -- Has Work Order --> WO
+    P -- Processed Material Batch --> MB
+    P -- Has Inspection Result --> IR
+    M -- Has Telemetry Event --> TE
+    EV -- Associated With Machine --> M
+    EV -- Associated With Part --> P
+    EV -- Associated With Tool --> T
+    ST -- RDF:type --> EV
