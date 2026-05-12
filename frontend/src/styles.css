@@ -1,0 +1,45 @@
+body{margin:0;background:#f5f6f8;color:#111827;font-family:Inter,Arial,sans-serif} .page{max-width:1180px;margin:0 auto;padding:28px} header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px} h1{margin:0;font-size:34px} header p{margin:6px 0 0;color:#4b5563}.status{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #d1d5db;border-radius:12px;padding:10px 14px}.grid{display:grid;gap:16px}.cards{grid-template-columns:repeat(3,1fr);margin-bottom:16px}.main{grid-template-columns:2fr 1fr}.card,.panel{background:#fff;border:1px solid #d1d5db;border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.card{padding:18px;display:flex;gap:14px;align-items:center}.card p{margin:0;color:#6b7280}.card strong{font-size:24px}.panel{padding:18px}.large{min-height:360px}h2{margin:0 0 14px;font-size:20px}.search{display:flex;gap:8px;margin-bottom:16px}.search input{flex:1;border:1px solid #cbd5e1;border-radius:10px;padding:10px;font-size:15px}.search button{display:flex;align-items:center;gap:6px;border:1px solid #111827;background:#111827;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer}.investigation h3{font-size:28px;margin:0 0 8px}.investigation p{line-height:1.5}.facts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:16px 0}.fact{border:1px solid #e5e7eb;border-radius:12px;padding:10px}.fact span{display:block;color:#6b7280;font-size:12px}.fact strong{font-size:14px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chips span{border:1px solid #cbd5e1;border-radius:999px;padding:6px 10px;background:#f8fafc}table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid #e5e7eb;padding:9px;text-align:left}.error{color:#b91c1c}@media(max-width:850px){.cards,.main{grid-template-columns:1fr}header{display:block}.status{margin-top:12px;width:max-content}}
+
+.hero {
+  display: grid;
+  gap: 14px;
+  border-left: 4px solid #222;
+}
+
+.hero h2 {
+  margin-top: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+button.secondary {
+  background: #f4f4f4;
+  color: #222;
+  border: 1px solid #aaa;
+}
+
+.notice {
+  padding: 10px;
+  background: #f7f7f7;
+  border: 1px solid #ddd;
+  margin: 0;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-x: auto;
+  background: #111;
+  color: #eee;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  max-height: 260px;
+}
+
+tr {
+  cursor: pointer;
+}

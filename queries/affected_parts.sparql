@@ -1,0 +1,22 @@
+PREFIX ft: <https://example.org/factory-trace#>
+
+SELECT ?affectedPartId
+WHERE {
+  ?target ft:partId "$PART_ID" ;
+          ft:processedMaterialBatch ?batch .
+
+  ?targetOperation ft:actsOnPart ?target ;
+                   ft:performedByMachine ?machine ;
+                   ft:usesTool ?tool .
+
+  ?affected ft:partId ?affectedPartId ;
+            ft:processedMaterialBatch ?batch ;
+            ft:hasInspectionResult ?inspection .
+
+  ?inspection ft:inspectionStatus "fail" .
+
+  ?affectedOperation ft:actsOnPart ?affected ;
+                     ft:performedByMachine ?machine ;
+                     ft:usesTool ?tool .
+}
+ORDER BY ?affectedPartId

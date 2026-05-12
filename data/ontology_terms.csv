@@ -1,0 +1,71 @@
+term_curie,term_type,parent_or_domain_range,definition
+ft:PhysicalEntity,class,,A material entity participating in the manufacturing environment.
+ft:Machine,class,ft:PhysicalEntity,A piece of manufacturing equipment.
+ft:CNCMachine,class,ft:Machine,A CNC machine used to perform manufacturing operations.
+ft:InspectionStation,class,ft:Machine,A station used to inspect parts or record quality results.
+ft:WorkCell,class,ft:PhysicalEntity,A bounded manufacturing area containing machines or operators.
+ft:Tool,class,ft:PhysicalEntity,A physical tool used by a machine or operator.
+ft:CuttingTool,class,ft:Tool,A tool used to remove material from a part.
+ft:Sensor,class,ft:PhysicalEntity,A device that records a measurement.
+ft:Part,class,ft:PhysicalEntity,A manufactured or in-process component.
+ft:MaterialBatch,class,ft:PhysicalEntity,A grouped lot of material.
+ft:Operator,class,ft:PhysicalEntity,A human operator.
+ft:Process,class,,An activity or sequence of activities.
+ft:ManufacturingOperation,class,ft:Process,A process step that acts on a part.
+ft:MillingOperation,class,ft:ManufacturingOperation,A material-removal operation by milling.
+ft:DrillingOperation,class,ft:ManufacturingOperation,A hole creation or enlargement operation.
+ft:InspectionOperation,class,ft:ManufacturingOperation,An operation that evaluates a part.
+ft:MaintenanceOperation,class,ft:ManufacturingOperation,An operation to maintain equipment.
+ft:Event,class,,An occurrence recorded in the factory.
+ft:ProductionStartEvent,class,ft:Event,Event marking the start of production for a part.
+ft:TelemetryEvent,class,ft:Event,Event recording machine/process measurements.
+ft:OperationCompleteEvent,class,ft:Event,Event marking completion of an operation.
+ft:QualityEvent,class,ft:Event,Event related to quality evaluation.
+ft:QualityDeviation,class,ft:QualityEvent,A quality event in which a result deviates from requirement.
+ft:AlarmEvent,class,ft:Event,Event indicating abnormal condition.
+ft:State,class,,Condition of an entity.
+ft:MachineState,class,ft:State,State of a machine.
+ft:OperationalState,class,ft:State,State relevant to operation or availability.
+ft:AnomalyState,class,ft:State,State indicating abnormal conditions.
+ft:InformationEntity,class,,Information-bearing entity.
+ft:WorkOrder,class,ft:InformationEntity,Information specifying work to perform.
+ft:Specification,class,ft:InformationEntity,Information stating requirements.
+ft:ToleranceRequirement,class,ft:InformationEntity,Allowable range or limit.
+ft:InspectionResult,class,ft:InformationEntity,Recorded inspection result.
+ft:RootCauseHypothesis,class,ft:InformationEntity,Candidate explanation for a quality deviation.
+ft:TemporalEntity,class,,A time-bounded entity.
+ft:Shift,class,ft:TemporalEntity,Scheduled work interval.
+ft:ProductionRun,class,ft:TemporalEntity,Bounded production interval.
+ft:performedByMachine,object_property,ManufacturingOperation -> Machine,Relates an operation to its machine.
+ft:actsOnPart,object_property,ManufacturingOperation -> Part,Relates an operation to the part it acts on.
+ft:usesTool,object_property,ManufacturingOperation -> Tool,Relates an operation to a tool.
+ft:processedMaterialBatch,object_property,Part -> MaterialBatch,Relates a part to its material batch.
+ft:hasTelemetryEvent,object_property,Machine -> TelemetryEvent,Relates a machine to a telemetry event.
+ft:hasInspectionResult,object_property,Part -> InspectionResult,Relates a part to an inspection result.
+ft:partOfProductionRun,object_property,ManufacturingOperation -> ProductionRun,Relates an operation to a production run.
+ft:associatedWithMachine,object_property,Event -> Machine,Relates an event to a machine.
+ft:associatedWithPart,object_property,Event -> Part,Relates an event to a part.
+ft:associatedWithTool,object_property,Event -> Tool,Relates an event to a tool.
+ft:hasWorkOrder,object_property,ManufacturingOperation -> WorkOrder,Relates an operation to a work order.
+ft:timestampValue,datatype_property,Event -> xsd:dateTime,ISO 8601 timestamp of the event.
+ft:eventId,datatype_property,Event -> xsd:string,Unique identifier for an event.
+ft:eventStatus,datatype_property,Event -> xsd:string,Status string of the event.
+ft:partId,datatype_property,Part -> xsd:string,Unique identifier for a part.
+ft:machineId,datatype_property,Machine -> xsd:string,Unique identifier for a machine.
+ft:toolId,datatype_property,Tool -> xsd:string,Unique identifier for a tool.
+ft:batchId,datatype_property,MaterialBatch -> xsd:string,Unique identifier for a material batch.
+ft:workOrderId,datatype_property,WorkOrder -> xsd:string,Unique identifier for a work order.
+ft:inspectionStatus,datatype_property,InspectionResult -> xsd:string,Pass or fail result of an inspection.
+ft:deviationType,datatype_property,QualityDeviation -> xsd:string,Type of quality deviation observed.
+ft:spindleSpeedRPM,datatype_property,TelemetryEvent -> xsd:decimal,Spindle speed in revolutions per minute.
+ft:feedRateMMMin,datatype_property,TelemetryEvent -> xsd:decimal,Feed rate in millimetres per minute.
+ft:vibrationMMs,datatype_property,TelemetryEvent -> xsd:decimal,Vibration in millimetres per second.
+ft:temperatureC,datatype_property,TelemetryEvent -> xsd:decimal,Temperature in degrees Celsius.
+ft:cycleTimeSec,datatype_property,TelemetryEvent -> xsd:decimal,Cycle time in seconds.
+ft:axisLoadXPct,datatype_property,TelemetryEvent -> xsd:decimal,X-axis load as a percentage.
+ft:axisLoadYPct,datatype_property,TelemetryEvent -> xsd:decimal,Y-axis load as a percentage.
+ft:axisLoadZPct,datatype_property,TelemetryEvent -> xsd:decimal,Z-axis load as a percentage.
+ft:ToolLifeState,class,ft:State,State representing the cumulative usage lifecycle of a cutting tool.
+ft:ProgramVersion,class,ft:InformationEntity,A versioned CNC program used to produce a part.
+ft:cumulativeOperationCount,datatype_property,ToolLifeState -> xsd:integer,Number of operations completed by a tool across all production runs.
+ft:programVersionId,datatype_property,ProgramVersion -> xsd:string,Unique identifier for a CNC program version.

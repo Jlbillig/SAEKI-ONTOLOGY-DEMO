@@ -1,0 +1,32 @@
+PREFIX ft: <https://example.org/factory-trace#>
+
+SELECT ?partId ?inspectionStatus ?deviationType ?machineId ?toolId ?batchId ?vibration ?temperature
+WHERE {
+  ?part ft:partId "$PART_ID" ;
+        ft:partId ?partId ;
+        ft:hasInspectionResult ?inspection ;
+        ft:processedMaterialBatch ?batch .
+
+  ?inspection ft:inspectionStatus ?inspectionStatus .
+
+  OPTIONAL {
+    ?deviation a ft:QualityDeviation ;
+               ft:associatedWithPart ?part ;
+               ft:deviationType ?deviationType .
+  }
+
+  ?batch ft:batchId ?batchId .
+
+  ?operation ft:actsOnPart ?part ;
+             ft:performedByMachine ?machine ;
+             ft:usesTool ?tool .
+
+  ?machine ft:machineId ?machineId .
+  ?tool ft:toolId ?toolId .
+
+  ?telemetry a ft:TelemetryEvent ;
+             ft:associatedWithPart ?part ;
+             ft:vibrationMMs ?vibration ;
+             ft:temperatureC ?temperature .
+}
+LIMIT 1

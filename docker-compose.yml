@@ -1,0 +1,19 @@
+services:
+  backend:
+    build: ./backend
+    container_name: factorytrace-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ontology:/app/ontology:ro
+      - ./queries:/app/queries:ro
+
+  frontend:
+    build: ./frontend
+    container_name: factorytrace-frontend
+    environment:
+      - VITE_API_BASE=http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend

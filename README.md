@@ -1,0 +1,123 @@
+# FactoryTrace
+
+FactoryTrace is a dockerized semantic manufacturing intelligence prototype for one mission-critical process:
+
+**CNC quality deviation traceability and root-cause investigation.**
+
+The system simulates CNC production events, maps those events into RDF, stores them in an Apache Jena Fuseki knowledge graph, and exposes a small API and dashboard for investigating failed parts.
+
+The goal is not to build a universal manufacturing ontology. The goal is to demonstrate how semantic infrastructure can connect machine telemetry, tools, parts, material batches, operations, and inspection results into an operational graph that supports traceability.
+
+## Scenario
+
+A controlled production run contains one failure window:
+
+- `CNC-02` runs with `TOOL-11`
+- vibration and temperature rise above normal operating thresholds
+- parts `PART-1015` through `PART-1019` fail inspection
+- the system traces the failure cluster through the common machine, tool, material batch, and telemetry anomaly
+
+## Architecture
+
+```text
+Synthetic CNC Event Simulator
+        ↓ HTTP JSON events
+FastAPI Ingestion API
+        ↓ semantic mapping
+RDF triples
+        ↓ SPARQL update
+Apache Jena Fuseki
+        ↓ SPARQL query
+Investigation API
+        ↓ JSON
+React Dashboard
+```
+
+## Services
+
+```text
+frontend   React/Vite dashboard
+backend    FastAPI ingestion and investigation API
+fuseki     Apache Jena Fuseki graph store
+simulator  Deterministic CNC event generator
+```
+
+## Quick start
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+```text
+Frontend: http://localhost:5173
+Backend:  http://localhost:8000/docs
+Fuseki:   http://localhost:3030
+```
+
+To run the simulator manually after the stack is up:
+
+```bash
+docker compose run --rm simulator
+```
+
+## API highlights
+
+```text
+GET  /health
+POST /events
+GET  /events/recent
+GET  /parts/PART-1017/investigation
+GET  /queries/failed-parts
+GET  /graph/export
+```
+
+The main endpoint is:
+
+```text
+GET /parts/PART-1017/investigation
+```
+
+It returns the failed part, inspection result, machine, tool, material batch, anomaly flags, related failed parts, and a plain-English explanation.
+
+## CNC simulation
+
+The simulator generates deterministic synthetic events. It does not claim to use live machine data. The fields are chosen to resemble common CNC operational concepts:
+
+- spindle speed
+- feed rate
+- vibration
+- temperature
+- cycle time
+- axis load
+- tool id
+- machine id
+- part id
+- material batch id
+- inspection result
+
+This makes the project reproducible and reviewable while still demonstrating the operational logic of a CNC traceability system.
+
+## Ontology terms
+
+The ontology is in:
+
+```text
+ontology/factory_trace_ontology.ttl
+```
+
+A CSV controlled vocabulary is in:
+
+```text
+data/ontology_terms.csv
+```
+
+## Design principles
+
+- Narrow operational process over generic ontology tooling
+- Deterministic data over arbitrary randomness
+- RDF/SPARQL used for explainable traceability
+- Dockerized from the start
+- Clear separation between simulation, ingestion, graph storage, and UI
+- No claim that this replaces industrial standards such as MTConnect, OPC-UA, ISA-95, STEP, or QIF

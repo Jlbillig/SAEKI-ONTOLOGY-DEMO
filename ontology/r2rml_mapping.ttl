@@ -1,0 +1,353 @@
+@prefix rr: <http://www.w3.org/ns/r2rml#> .
+@prefix ft: <https://example.org/factory-trace#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# FactoryTrace R2RML Mapping
+#
+# This document defines how a hypothetical relational schema — the kind found
+# in a typical MES (Manufacturing Execution System) or ERP database — maps
+# to the FactoryTrace ontology.
+#
+# In a live SAEKI deployment, this mapping would be used to lift historical
+# production data from existing SQL databases into the knowledge graph,
+# enabling AI agents to reason over both historical and live event data
+# in the same semantic layer.
+#
+# The relational schema assumed here:
+#
+#   parts(part_id, production_run_id, material_batch_id, created_at)
+#   machines(machine_id, machine_type, work_cell_id)
+#   tools(tool_id, tool_type)
+#   material_batches(batch_id, material_type, supplier)
+#   production_runs(run_id, work_order_id, shift_id, started_at)
+#   manufacturing_operations(op_id, part_id, machine_id, tool_id,
+#                            run_id, operation_type, started_at)
+#   telemetry_events(event_id, machine_id, part_id, timestamp,
+#                   spindle_speed_rpm, feed_rate_mm_min,
+#                   vibration_mm_s, temperature_c,
+#                   cycle_time_sec,
+#                   axis_load_x_pct, axis_load_y_pct, axis_load_z_pct)
+#   inspection_results(result_id, part_id, timestamp,
+#                      inspection_status, deviation_type)
+#   quality_deviations(dev_id, part_id, result_id,
+#                      deviation_type, timestamp)
+#   alarm_events(alarm_id, machine_id, part_id, timestamp)
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Parts
+# -----------------------------------------------------------------------------
+
+<#PartMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "parts" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Part_{part_id}" ;
+    rr:class ft:Part ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:partId ;
+    rr:objectMap [ rr:column "part_id" ; rr:datatype xsd:string ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:processedMaterialBatch ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#MaterialBatch_{material_batch_id}" ;
+    ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Machines
+# -----------------------------------------------------------------------------
+
+<#MachineMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "machines" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Machine_{machine_id}" ;
+    rr:class ft:CNCMachine ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:machineId ;
+    rr:objectMap [ rr:column "machine_id" ; rr:datatype xsd:string ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Cutting Tools
+# -----------------------------------------------------------------------------
+
+<#ToolMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "tools" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Tool_{tool_id}" ;
+    rr:class ft:CuttingTool ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:toolId ;
+    rr:objectMap [ rr:column "tool_id" ; rr:datatype xsd:string ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Material Batches
+# -----------------------------------------------------------------------------
+
+<#MaterialBatchMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "material_batches" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#MaterialBatch_{batch_id}" ;
+    rr:class ft:MaterialBatch ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:batchId ;
+    rr:objectMap [ rr:column "batch_id" ; rr:datatype xsd:string ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Production Runs
+# -----------------------------------------------------------------------------
+
+<#ProductionRunMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "production_runs" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#ProductionRun_{run_id}" ;
+    rr:class ft:ProductionRun ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Manufacturing Operations
+# Maps each operation row to either ft:MillingOperation or ft:DrillingOperation
+# using a SQL view that filters by operation_type.
+# -----------------------------------------------------------------------------
+
+<#MillingOperationMap> a rr:TriplesMap ;
+  rr:logicalTable [
+    rr:sqlQuery """
+      SELECT * FROM manufacturing_operations
+      WHERE operation_type = 'milling'
+    """
+  ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Operation_{op_id}" ;
+    rr:class ft:MillingOperation ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:actsOnPart ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Part_{part_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:performedByMachine ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Machine_{machine_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:usesTool ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Tool_{tool_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:partOfProductionRun ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#ProductionRun_{run_id}" ;
+    ] ;
+  ] .
+
+
+<#DrillingOperationMap> a rr:TriplesMap ;
+  rr:logicalTable [
+    rr:sqlQuery """
+      SELECT * FROM manufacturing_operations
+      WHERE operation_type = 'drilling'
+    """
+  ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Operation_{op_id}" ;
+    rr:class ft:DrillingOperation ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:actsOnPart ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Part_{part_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:performedByMachine ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Machine_{machine_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:usesTool ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Tool_{tool_id}" ;
+    ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Telemetry Events
+# -----------------------------------------------------------------------------
+
+<#TelemetryEventMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "telemetry_events" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Event_{event_id}" ;
+    rr:class ft:TelemetryEvent ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:eventId ;
+    rr:objectMap [ rr:column "event_id" ; rr:datatype xsd:string ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:timestampValue ;
+    rr:objectMap [ rr:column "timestamp" ; rr:datatype xsd:dateTime ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:associatedWithMachine ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Machine_{machine_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:associatedWithPart ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Part_{part_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:spindleSpeedRPM ;
+    rr:objectMap [ rr:column "spindle_speed_rpm" ; rr:datatype xsd:decimal ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:feedRateMMMin ;
+    rr:objectMap [ rr:column "feed_rate_mm_min" ; rr:datatype xsd:decimal ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:vibrationMMs ;
+    rr:objectMap [ rr:column "vibration_mm_s" ; rr:datatype xsd:decimal ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:temperatureC ;
+    rr:objectMap [ rr:column "temperature_c" ; rr:datatype xsd:decimal ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:cycleTimeSec ;
+    rr:objectMap [ rr:column "cycle_time_sec" ; rr:datatype xsd:decimal ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:axisLoadXPct ;
+    rr:objectMap [ rr:column "axis_load_x_pct" ; rr:datatype xsd:decimal ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:axisLoadYPct ;
+    rr:objectMap [ rr:column "axis_load_y_pct" ; rr:datatype xsd:decimal ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:axisLoadZPct ;
+    rr:objectMap [ rr:column "axis_load_z_pct" ; rr:datatype xsd:decimal ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Inspection Results
+# -----------------------------------------------------------------------------
+
+<#InspectionResultMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "inspection_results" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Event_{result_id}" ;
+    rr:class ft:InspectionResult ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:timestampValue ;
+    rr:objectMap [ rr:column "timestamp" ; rr:datatype xsd:dateTime ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:inspectionStatus ;
+    rr:objectMap [ rr:column "inspection_status" ; rr:datatype xsd:string ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:deviationType ;
+    rr:objectMap [ rr:column "deviation_type" ; rr:datatype xsd:string ] ;
+  ] .
+
+
+# Part -> hasInspectionResult -> InspectionResult
+<#PartInspectionLinkMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "inspection_results" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Part_{part_id}" ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:hasInspectionResult ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Event_{result_id}" ;
+    ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Quality Deviations
+# -----------------------------------------------------------------------------
+
+<#QualityDeviationMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "quality_deviations" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#QualityDeviation_{dev_id}" ;
+    rr:class ft:QualityDeviation ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:deviationType ;
+    rr:objectMap [ rr:column "deviation_type" ; rr:datatype xsd:string ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:timestampValue ;
+    rr:objectMap [ rr:column "timestamp" ; rr:datatype xsd:dateTime ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:associatedWithPart ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Part_{part_id}" ;
+    ] ;
+  ] .
+
+
+# -----------------------------------------------------------------------------
+# Alarm Events
+# -----------------------------------------------------------------------------
+
+<#AlarmEventMap> a rr:TriplesMap ;
+  rr:logicalTable [ rr:tableName "alarm_events" ] ;
+  rr:subjectMap [
+    rr:template "https://example.org/factory-trace#Event_{alarm_id}" ;
+    rr:class ft:AlarmEvent ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:eventId ;
+    rr:objectMap [ rr:column "alarm_id" ; rr:datatype xsd:string ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:timestampValue ;
+    rr:objectMap [ rr:column "timestamp" ; rr:datatype xsd:dateTime ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:associatedWithMachine ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Machine_{machine_id}" ;
+    ] ;
+  ] ;
+  rr:predicateObjectMap [
+    rr:predicate ft:associatedWithPart ;
+    rr:objectMap [
+      rr:template "https://example.org/factory-trace#Part_{part_id}" ;
+    ] ;
+  ] .
