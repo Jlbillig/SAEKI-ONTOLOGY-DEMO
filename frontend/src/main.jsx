@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Activity, AlertTriangle, Database, Search, Play, Square, RefreshCcw, Zap} from 'lucide-react';
+import {Activity, AlertTriangle, Database, Search, Play, Square, RefreshCcw, Zap, Download} from 'lucide-react';
 import './styles.css';
 
 const API = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
@@ -31,6 +31,7 @@ function App(){
   const [queryResult, setQueryResult] = useState(null);
   const [queryLoading, setQueryLoading] = useState(false);
   const [similarFailures, setSimilarFailures] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   async function safeJson(url, fallback){
     try {
@@ -91,6 +92,45 @@ function App(){
     await load();
   }
 
+  async function exportRdf(){
+    setError('');
+    setExporting(true);
+    setStatus('Exporting RDF graph...');
+    try {
+      const r = await fetch(`${API}/graph/export`);
+      if (!r.ok) {
+        setError(`Export failed: ${r.status} ${r.statusText}`);
+        setStatus('');
+        return;
+      }
+      const data = await r.json();
+      const turtle = data.turtle || '';
+      if (!turtle.trim()) {
+        setError('Graph is empty — seed the demo or start a live run first.');
+        setStatus('');
+        return;
+      }
+      // Trigger browser download
+      const blob = new Blob([turtle], {type: 'text/turtle'});
+      const url = URL.createObjectURL(blob);
+      const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `factorytrace-${ts}.ttl`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      const sizeKb = (turtle.length / 1024).toFixed(1);
+      setStatus(`Downloaded factorytrace-${ts}.ttl (${sizeKb} KB, ${health?.triples ?? '?'} triples).`);
+    } catch (e) {
+      setError(`Export failed: ${e.message}`);
+      setStatus('');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function investigate(selectedPart){
     const target = selectedPart || part;
     if (!target) return;
@@ -126,6 +166,8 @@ function App(){
     ? health.live_scenario.replace(/_/g,' ')
     : null;
 
+  const hasGraphData = (health?.triples ?? 0) > 0;
+
   return <div className="page">
     <header>
       <div>
@@ -155,6 +197,14 @@ function App(){
           : <button onClick={startLive}><Zap size={16}/>Start live run</button>
         }
         <button className="secondary" onClick={seedDemo}><Play size={16}/>Load demo scenario</button>
+        <button
+          className="secondary"
+          onClick={exportRdf}
+          disabled={exporting || !hasGraphData}
+          title={hasGraphData ? 'Download the current RDF graph as Turtle' : 'Seed the demo or start a live run first'}
+        >
+          <Download size={16}/>{exporting ? 'Exporting…' : 'Export RDF (.ttl)'}
+        </button>
         <button className="secondary" onClick={resetAll}><RefreshCcw size={16}/>Reset</button>
       </div>
       {status && <p className="notice">{status}</p>}
@@ -376,9 +426,9 @@ function SemanticGapPanel({investigation}){
     `  ft:hasInspectionResult ft:Event_inspection .`,
     ``,
     `ft:RootCauseHypothesis_RCH a ft:RootCauseHypothesis ;`,
-    `  ft:associatedWithPart ft:Part_${investigation.part_id?.replace(/-/g,'_')} ;`,
-    `  ft:associatedWithMachine ft:Machine_${investigation.machine_id?.replace('-','_')} ;`,
-    `  ft:associatedWithTool ft:Tool_${investigation.tool_id?.replace('-','_')} .`,
+    `  ft:hypothesizedCausePart ft:Part_${investigation.part_id?.replace(/-/g,'_')} ;`,
+    `  ft:hypothesizedCauseMachine ft:Machine_${investigation.machine_id?.replace('-','_')} ;`,
+    `  ft:hypothesizedCauseTool ft:Tool_${investigation.tool_id?.replace('-','_')} .`,
   ].join('\n');
 
   return <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>

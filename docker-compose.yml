@@ -7,13 +7,19 @@ services:
     volumes:
       - ./ontology:/app/ontology:ro
       - ./queries:/app/queries:ro
+      - ./backend/app:/app/app:ro
 
   frontend:
     build: ./frontend
     container_name: factorytrace-frontend
     environment:
       - VITE_API_BASE=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
     ports:
       - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - /app/node_modules
     depends_on:
       - backend

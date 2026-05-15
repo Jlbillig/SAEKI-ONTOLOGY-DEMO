@@ -1,4 +1,5 @@
 import random
+import re
 import threading
 import time
 from pathlib import Path
@@ -12,13 +13,18 @@ from rdflib import Graph, RDF
 from .semantic_mapper import event_to_graph, uri, FT
 from .models import FactoryEvent
 
-app = FastAPI(title="FactoryTrace API", version="0.5.0")
+app = FastAPI(title="FactoryTrace API", version="0.6.0")
 
+# Tightened CORS: explicit dev origins instead of wildcard. Wildcard with
+# allow_credentials=True is invalid per the CORS spec anyway.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -27,6 +33,27 @@ recent_events: List[Dict[str, Any]] = []
 live_state: Dict[str, Any] = {"running": False, "thread": None, "scenario": None}
 tool_operation_counts: Dict[str, int] = {}
 timeline_snapshots: List[Dict[str, Any]] = []
+
+# Single lock guarding graph + recent_events + tool_operation_counts +
+# timeline_snapshots. The live simulator thread writes to all four while
+# HTTP handlers read from them; rdflib's default Memory store is not
+# documented as safe for concurrent read-during-write.
+state_lock = threading.RLock()
+
+# Identifier sanitiser for any value that gets interpolated into a raw
+# SPARQL query string. SPARQL string literals can contain anything that
+# isn't an unescaped " or backslash, so we restrict to the character set
+# the simulator actually produces.
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
+
+
+def safe_id(value: str, field: str = "id") -> str:
+    if not isinstance(value, str) or not _SAFE_ID_RE.match(value):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid {field}: must match [A-Za-z0-9_-]{{1,64}}",
+        )
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -40,45 +67,48 @@ def load_ontology() -> None:
 
 
 def reset_graph() -> None:
-    graph.remove((None, None, None))
-    recent_events.clear()
-    tool_operation_counts.clear()
-    timeline_snapshots.clear()
-    load_ontology()
+    with state_lock:
+        graph.remove((None, None, None))
+        recent_events.clear()
+        tool_operation_counts.clear()
+        timeline_snapshots.clear()
+        load_ontology()
 
 
 def insert_event(event: Dict[str, Any]) -> Dict[str, Any]:
     event_graph = event_to_graph(event)
-    for triple in event_graph:
-        graph.add(triple)
-    recent_events.insert(0, event)
-    del recent_events[200:]
+    with state_lock:
+        for triple in event_graph:
+            graph.add(triple)
+        recent_events.insert(0, event)
+        del recent_events[200:]
 
-    # Track tool operation counts for tool life state
-    if event.get("event_type") in {"operation_complete"} and event.get("tool_id"):
-        tid = event["tool_id"]
-        tool_operation_counts[tid] = tool_operation_counts.get(tid, 0) + 1
+        # Track tool operation counts for tool life state
+        if event.get("event_type") in {"operation_complete"} and event.get("tool_id"):
+            tid = event["tool_id"]
+            tool_operation_counts[tid] = tool_operation_counts.get(tid, 0) + 1
 
-    # Snapshot timeline every 20 events
-    if len(recent_events) % 20 == 0 or event.get("event_type") == "inspection_result":
-        failed_count = sum(
-            1 for e in recent_events
-            if e.get("event_type") == "inspection_result"
-            and e.get("inspection_status") == "fail"
-        )
-        timeline_snapshots.append({
-            "ts": event.get("timestamp", ""),
-            "triples": len(graph),
-            "events": len(recent_events),
-            "failures": failed_count,
-        })
-        del timeline_snapshots[200:]
+        # Snapshot timeline every 20 events
+        if len(recent_events) % 20 == 0 or event.get("event_type") == "inspection_result":
+            failed_count = sum(
+                1 for e in recent_events
+                if e.get("event_type") == "inspection_result"
+                and e.get("inspection_status") == "fail"
+            )
+            timeline_snapshots.append({
+                "ts": event.get("timestamp", ""),
+                "triples": len(graph),
+                "events": len(recent_events),
+                "failures": failed_count,
+            })
+            del timeline_snapshots[200:]
 
     return {"event_id": event["event_id"], "triples_inserted": len(event_graph)}
 
 
 def query_select(query: str) -> List[Dict[str, Any]]:
-    results = graph.query(query)
+    with state_lock:
+        results = list(graph.query(query))
     rows = []
     for row in results:
         item = {}
@@ -89,8 +119,10 @@ def query_select(query: str) -> List[Dict[str, Any]]:
 
 
 def query_construct(query: str) -> str:
-    result_graph = graph.query(query)
+    with state_lock:
+        result_graph = list(graph.query(query))
     out = Graph()
+    out.bind("ft", FT)  # Preserve the ft: prefix on export
     for triple in result_graph:
         out.add(triple)
     return out.serialize(format="turtle")
@@ -281,8 +313,14 @@ def generate_part_events(
     scenario: Dict[str, Any],
     counter: int,
     start: datetime,
+    deterministic_cluster_fail: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Generate the burst of events for one part."""
+    """Generate the burst of events for one part.
+
+    deterministic_cluster_fail: if True, every part inside a failure cluster
+    fails inspection. Used by /demo/seed so the scripted scenario is
+    reproducible. The live runner keeps the 0.85 probability for realism.
+    """
     run = scenario["run_id"]
     work_order = scenario["work_order"]
     shift = scenario["shift"]
@@ -375,7 +413,10 @@ def generate_part_events(
 
     # Inspection
     if cluster:
-        inspection_status = "fail" if random.random() < 0.85 else "pass"
+        if deterministic_cluster_fail:
+            inspection_status = "fail"
+        else:
+            inspection_status = "fail" if random.random() < 0.85 else "pass"
     else:
         inspection_status = "fail" if random.random() < 0.03 else "pass"
 
@@ -546,7 +587,8 @@ def ingest_event(event: FactoryEvent):
 
 @app.get("/events/recent")
 def get_recent_events():
-    return recent_events
+    with state_lock:
+        return list(recent_events)
 
 
 @app.post("/live/start")
@@ -605,7 +647,11 @@ def seed_demo():
     triples = 0
     counter = 1
     for i in range(1, 31):
-        events = generate_part_events(i, scenario, counter, start)
+        # deterministic_cluster_fail=True so all 5 cluster parts (015-019)
+        # actually fail inspection, matching what the README advertises.
+        events = generate_part_events(
+            i, scenario, counter, start, deterministic_cluster_fail=True
+        )
         counter += len(events)
         for event in events:
             result = insert_event(event)
@@ -652,6 +698,8 @@ def list_named_queries():
 
 @app.get("/parts/{part_id}/investigation")
 def investigate_part(part_id: str):
+    part_id = safe_id(part_id, "part_id")
+
     q = Path("queries/part_investigation.sparql").read_text().replace("$PART_ID", part_id)
     rows = query_select(q)
 
@@ -686,29 +734,33 @@ def investigate_part(part_id: str):
         f"{len(affected)} other failed part(s) share the same machine, tool, and material batch."
     )
 
-    # Write RootCauseHypothesis into the live graph
-    hyp = uri("RootCauseHypothesis", f"RCH_{part_id}")
-    graph.add((hyp, RDF.type, FT.RootCauseHypothesis))
-    graph.add((hyp, FT.associatedWithPart, uri("Part", part_id)))
-    if primary.get("machineId"):
-        graph.add((hyp, FT.associatedWithMachine, uri("Machine", primary["machineId"])))
-    if primary.get("toolId"):
-        graph.add((hyp, FT.associatedWithTool, uri("Tool", primary["toolId"])))
+    # Write RootCauseHypothesis into the live graph (under the lock).
+    # Using hypothesis-specific properties whose domain is RootCauseHypothesis
+    # rather than reusing ft:associatedWith* (which the ontology scopes to Events).
+    with state_lock:
+        hyp = uri("RootCauseHypothesis", f"RCH_{part_id}")
+        graph.add((hyp, RDF.type, FT.RootCauseHypothesis))
+        graph.add((hyp, FT.hypothesizedCausePart, uri("Part", part_id)))
+        if primary.get("machineId"):
+            graph.add((hyp, FT.hypothesizedCauseMachine, uri("Machine", primary["machineId"])))
+        if primary.get("toolId"):
+            graph.add((hyp, FT.hypothesizedCauseTool, uri("Tool", primary["toolId"])))
 
     # Find the raw inspection event to get deviation measurement
     deviation_measurement = None
-    for e in recent_events:
-        if (e.get("event_type") == "inspection_result"
-                and e.get("part_id") == part_id
-                and e.get("deviation_measured_value") is not None):
-            deviation_measurement = {
-                "label": e.get("deviation_measurement_label"),
-                "measured": e.get("deviation_measured_value"),
-                "unit": e.get("deviation_unit"),
-                "limit": e.get("deviation_limit"),
-                "limit_label": e.get("deviation_limit_label"),
-            }
-            break
+    with state_lock:
+        for e in list(recent_events):
+            if (e.get("event_type") == "inspection_result"
+                    and e.get("part_id") == part_id
+                    and e.get("deviation_measured_value") is not None):
+                deviation_measurement = {
+                    "label": e.get("deviation_measurement_label"),
+                    "measured": e.get("deviation_measured_value"),
+                    "unit": e.get("deviation_unit"),
+                    "limit": e.get("deviation_limit"),
+                    "limit_label": e.get("deviation_limit_label"),
+                }
+                break
 
     # Tool life state
     tool_ops = tool_operation_counts.get(primary.get("toolId", ""), 0)
@@ -741,6 +793,8 @@ def similar_failures(part_id: str):
     and material batch on DIFFERENT machines. This is what no MES does
     automatically — it requires semantic cross-system reasoning.
     """
+    part_id = safe_id(part_id, "part_id")
+
     # First get the deviation type and batch for this part
     context_q = f"""
 PREFIX ft: <https://example.org/factory-trace#>
@@ -766,6 +820,12 @@ LIMIT 1
     batch_id = ctx[0]["batchId"]
     source_machine = ctx[0]["machineId"]
 
+    # These come out of the graph via the previous query and are not user
+    # input, but sanitise anyway to be defensive against any future code
+    # path that lets user input touch deviation/batch values.
+    safe_dev = safe_id(deviation_type, "deviation_type")
+    safe_batch = safe_id(batch_id, "batch_id")
+
     similar_q = f"""
 PREFIX ft: <https://example.org/factory-trace#>
 SELECT DISTINCT ?partId ?machineId ?toolId ?batchId ?deviationType
@@ -783,7 +843,7 @@ WHERE {{
   ?machine ft:machineId ?machineId .
   ?tool ft:toolId ?toolId .
   FILTER(?partId != "{part_id}")
-  FILTER(?deviationType = "{deviation_type}" || ?batchId = "{batch_id}")
+  FILTER(?deviationType = "{safe_dev}" || ?batchId = "{safe_batch}")
 }}
 ORDER BY ?machineId ?partId
 LIMIT 20
@@ -810,9 +870,8 @@ LIMIT 20
 
 @app.get("/graph/timeline")
 def graph_timeline():
-    return {
-        "snapshots": timeline_snapshots[-50:],
-    }
+    with state_lock:
+        return {"snapshots": list(timeline_snapshots[-50:])}
 
 
 @app.get("/graph/stats")

@@ -46,7 +46,9 @@ ft:TemporalEntity a owl:Class ; rdfs:label "Temporal Entity" .
 ft:Shift a owl:Class ; rdfs:subClassOf ft:TemporalEntity ; rdfs:label "Shift" .
 ft:ProductionRun a owl:Class ; rdfs:subClassOf ft:TemporalEntity ; rdfs:label "Production Run" .
 
+# --- Object properties ---
 ft:performedByMachine a owl:ObjectProperty ; rdfs:domain ft:ManufacturingOperation ; rdfs:range ft:Machine ; rdfs:label "performed by machine" .
+ft:performedByOperator a owl:ObjectProperty ; rdfs:domain ft:ManufacturingOperation ; rdfs:range ft:Operator ; rdfs:label "performed by operator" .
 ft:actsOnPart a owl:ObjectProperty ; rdfs:domain ft:ManufacturingOperation ; rdfs:range ft:Part ; rdfs:label "acts on part" .
 ft:usesTool a owl:ObjectProperty ; rdfs:domain ft:ManufacturingOperation ; rdfs:range ft:Tool ; rdfs:label "uses tool" .
 ft:processedMaterialBatch a owl:ObjectProperty ; rdfs:domain ft:Part ; rdfs:range ft:MaterialBatch ; rdfs:label "processed material batch" .
@@ -57,7 +59,18 @@ ft:associatedWithMachine a owl:ObjectProperty ; rdfs:domain ft:Event ; rdfs:rang
 ft:associatedWithPart a owl:ObjectProperty ; rdfs:domain ft:Event ; rdfs:range ft:Part ; rdfs:label "associated with part" .
 ft:associatedWithTool a owl:ObjectProperty ; rdfs:domain ft:Event ; rdfs:range ft:Tool ; rdfs:label "associated with tool" .
 ft:hasWorkOrder a owl:ObjectProperty ; rdfs:domain ft:ManufacturingOperation ; rdfs:range ft:WorkOrder ; rdfs:label "has work order" .
+ft:duringShift a owl:ObjectProperty ; rdfs:domain ft:Event ; rdfs:range ft:Shift ; rdfs:label "during shift" .
+ft:locatedInWorkCell a owl:ObjectProperty ; rdfs:domain ft:Machine ; rdfs:range ft:WorkCell ; rdfs:label "located in work cell" .
+ft:hasState a owl:ObjectProperty ; rdfs:domain ft:Machine ; rdfs:range ft:MachineState ; rdfs:label "has state" .
+ft:derivedFromEvent a owl:ObjectProperty ; rdfs:domain ft:MachineState ; rdfs:range ft:Event ; rdfs:label "derived from event" .
 
+# Hypothesis-specific properties whose domain is RootCauseHypothesis,
+# instead of overloading ft:associatedWith* (whose domain is ft:Event).
+ft:hypothesizedCausePart a owl:ObjectProperty ; rdfs:domain ft:RootCauseHypothesis ; rdfs:range ft:Part ; rdfs:label "hypothesized cause part" .
+ft:hypothesizedCauseMachine a owl:ObjectProperty ; rdfs:domain ft:RootCauseHypothesis ; rdfs:range ft:Machine ; rdfs:label "hypothesized cause machine" .
+ft:hypothesizedCauseTool a owl:ObjectProperty ; rdfs:domain ft:RootCauseHypothesis ; rdfs:range ft:Tool ; rdfs:label "hypothesized cause tool" .
+
+# --- Data properties ---
 ft:eventId a owl:DatatypeProperty ; rdfs:range xsd:string ; rdfs:label "event id" .
 ft:machineId a owl:DatatypeProperty ; rdfs:range xsd:string ; rdfs:label "machine id" .
 ft:partId a owl:DatatypeProperty ; rdfs:range xsd:string ; rdfs:label "part id" .
@@ -76,3 +89,7 @@ ft:axisLoadZPct a owl:DatatypeProperty ; rdfs:range xsd:decimal ; rdfs:label "ax
 ft:eventStatus a owl:DatatypeProperty ; rdfs:range xsd:string ; rdfs:label "event status" .
 ft:deviationType a owl:DatatypeProperty ; rdfs:range xsd:string ; rdfs:label "deviation type" .
 ft:inspectionStatus a owl:DatatypeProperty ; rdfs:range xsd:string ; rdfs:label "inspection status" .
+ft:programVersion a owl:DatatypeProperty ; rdfs:domain ft:ManufacturingOperation ; rdfs:range xsd:string ; rdfs:label "program version" .
+ft:deviationMeasuredValue a owl:DatatypeProperty ; rdfs:domain ft:QualityDeviation ; rdfs:range xsd:decimal ; rdfs:label "deviation measured value" .
+ft:deviationLimit a owl:DatatypeProperty ; rdfs:domain ft:QualityDeviation ; rdfs:range xsd:decimal ; rdfs:label "deviation limit" .
+ft:deviationUnit a owl:DatatypeProperty ; rdfs:domain ft:QualityDeviation ; rdfs:range xsd:string ; rdfs:label "deviation unit" .

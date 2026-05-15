@@ -37,7 +37,7 @@ def event_to_graph(e: dict) -> Graph:
     g.add((event, FT.eventId, lit(e["event_id"])))
     g.add((event, FT.timestampValue, lit(e["timestamp"], XSD.dateTime)))
 
-    part = machine = tool = batch = run = operation = None
+    part = machine = tool = batch = run = operation = operator = shift = None
 
     # --- Part ---
     if e.get("part_id"):
@@ -77,6 +77,8 @@ def event_to_graph(e: dict) -> Graph:
     if e.get("shift_id"):
         shift = uri("Shift", e["shift_id"])
         g.add((shift, RDF.type, FT.Shift))
+        # Link the event to its shift so Shift isn't an orphan node
+        g.add((event, FT.duringShift, shift))
 
     # --- Operator ---
     if e.get("operator_id"):
@@ -87,6 +89,8 @@ def event_to_graph(e: dict) -> Graph:
     if e.get("work_cell_id"):
         workcell = uri("WorkCell", e["work_cell_id"])
         g.add((workcell, RDF.type, FT.WorkCell))
+        if machine is not None:
+            g.add((machine, FT.locatedInWorkCell, workcell))
 
     # --- Manufacturing operation (milling or drilling) ---
     if event_type in {"production_start", "telemetry", "operation_complete"} and part and machine:
@@ -107,15 +111,23 @@ def event_to_graph(e: dict) -> Graph:
             g.add((operation, FT.usesTool, tool))
         if run:
             g.add((operation, FT.partOfProductionRun, run))
+        if operator is not None:
+            g.add((operation, FT.performedByOperator, operator))
         if e.get("work_order_id"):
             wo = uri("WorkOrder", e["work_order_id"])
             g.add((wo, RDF.type, FT.WorkOrder))
             g.add((wo, FT.workOrderId, lit(e["work_order_id"])))
             g.add((operation, FT.hasWorkOrder, wo))
+        if e.get("program_version"):
+            g.add((operation, FT.programVersion, lit(e["program_version"])))
 
     # --- Telemetry readings + machine state ---
     if event_type == "telemetry" and machine:
         g.add((machine, FT.hasTelemetryEvent, event))
+        # NOTE: duplicate (event, ft:associatedWithMachine, machine) that was
+        # here previously is removed — it's already added in the Machine block
+        # above.
+
         for key, prop in [
             ("spindle_speed_rpm", FT.spindleSpeedRPM),
             ("feed_rate_mm_min", FT.feedRateMMMin),
@@ -139,7 +151,10 @@ def event_to_graph(e: dict) -> Graph:
         state_class = FT.AnomalyState if is_anomaly else FT.OperationalState
         g.add((state, RDF.type, state_class))
         g.add((state, RDF.type, FT.MachineState))
-        g.add((event, FT.associatedWithMachine, machine))
+        # Connect the state to the machine and the originating telemetry event
+        # so MachineState nodes aren't orphans.
+        g.add((machine, FT.hasState, state))
+        g.add((state, FT.derivedFromEvent, event))
 
         # AlarmEvent if anomaly thresholds exceeded
         if is_anomaly:
@@ -166,6 +181,15 @@ def event_to_graph(e: dict) -> Graph:
             g.add((dev, FT.timestampValue, lit(e["timestamp"], XSD.dateTime)))
             if machine:
                 g.add((dev, FT.associatedWithMachine, machine))
+            # Optional deviation measurement detail
+            if e.get("deviation_measured_value") is not None:
+                g.add((dev, FT.deviationMeasuredValue,
+                       lit(e["deviation_measured_value"], XSD.decimal)))
+            if e.get("deviation_unit"):
+                g.add((dev, FT.deviationUnit, lit(e["deviation_unit"])))
+            if e.get("deviation_limit") is not None:
+                g.add((dev, FT.deviationLimit,
+                       lit(e["deviation_limit"], XSD.decimal)))
 
     # --- Maintenance operation ---
     if event_type == "maintenance" and machine:
